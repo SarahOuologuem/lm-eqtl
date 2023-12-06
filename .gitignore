@@ -1,0 +1,12 @@
+*.o
+*.e
+*.tmp
+tmp.*
+__pycache__/
+.ipynb_checkpoints/
+.snakemake/
+logs/
+/dataprep/snakemake/
+/checkpoints/
+/datasets/
+data.zip
