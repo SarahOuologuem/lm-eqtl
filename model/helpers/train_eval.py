@@ -127,7 +127,7 @@ def model_eval(model, optimizer, dataloader, device, diploid = False,get_embeddi
                 masked_recall.update(preds, targets_masked)
                 masked_accuracy.update(preds, targets_masked)
                 masked_IQS.update(preds, targets_masked)
-            else:  
+            if diploid and get_embeddings: 
                 # with batch size = 1, one batch contains the two sequences of one sample 
                 # let's extract both sequences and get the predictions of both 
                 # afterwards compute the scores for the combined predictions 
