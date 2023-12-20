@@ -75,7 +75,7 @@ def model_eval(model, optimizer, dataloader, device, diploid = False,get_embeddi
     criterion = torch.nn.CrossEntropyLoss(reduction = "mean")
     
     if diploid: 
-        n_classes = 3
+        n_classes = 4
     else: 
         n_classes = 2
 
@@ -168,41 +168,41 @@ def model_eval(model, optimizer, dataloader, device, diploid = False,get_embeddi
                 #  combine the predictions and compute the metrics 
         
                 # "notation":
-                # 0 = M
-                # 1 = F
-                # 2 = B 
+                # 0 = R
+                # 1 = M 
+                # 2 = F
+                # 3 = B 
                 # -100 = masked 
                 
-                # combine predictions
-                # 2 = B 
+                # combine preds 
                 combined_preds = preds1+preds2
-                combined_preds = torch.where(combined_preds==2, combined_preds, 0)
-                # 1 = F
-                temp = combined_preds + preds1
-                combined_preds = torch.where(temp==1, temp, combined_preds)
+                combined_preds = torch.where(combined_preds==2, combined_preds +1, 0) # == 3 if both, 0 otherwise 
+                temp = combined_preds + preds1 # == 4 if both, 1 if father 
+                combined_preds = torch.where(temp==1, temp+1, combined_preds) # == 3 if both, 2 if father, otherwise 0 
+                temp = combined_preds + preds2 # == 4 if both, 2 if father, 1 if mother 
+                combined_preds = torch.where(temp==1, temp, combined_preds) # == 3 if both, 2 if father, 1 if mother, otherwise 0 
 
                 # combine targets
-                # 2 = B 
                 combined_targets = targets1+targets2
-                combined_targets = torch.where(combined_targets==2, combined_targets, 0)
-                # 1 = F
-                temp = combined_targets + targets1
-                combined_targets = torch.where(temp==1, temp, combined_targets)
-                combined_targets
+                combined_targets = torch.where(combined_targets==2, combined_targets +1, 0) # == 3 if both, 0 otherwise 
+                temp = combined_targets + targets1 # == 4 if both, 1 if father 
+                combined_targets = torch.where(temp==1, temp+1, combined_targets) # == 3 if both, 2 if father, otherwise 0 
+                temp = combined_targets + targets2 # == 4 if both, 2 if father, 1 if mother 
+                combined_targets = torch.where(temp==1, temp, combined_targets) # == 3 if both, 2 if father, 1 if mother, otherwise 0 
 
                 # combine masked targets 
-                # 2 = B 
                 combined_targets_masked = targets_masked1+targets_masked2
-                combined_targets_masked= torch.where(combined_targets_masked==2, combined_targets_masked, 0)
-                # 1 = F
-                temp = combined_targets_masked + targets_masked1
-                combined_targets_masked = torch.where(temp==1, temp, combined_targets_masked)
-                combined_targets_masked = torch.where(temp==-100, temp, combined_targets_masked)
+                combined_targets_masked = torch.where(combined_targets_masked==2, combined_targets_masked +1, 0) # == 3 if both, 0 otherwise 
+                temp = combined_targets_masked + targets_masked1 # == 4 if both, 1 if father 
+                combined_targets_masked = torch.where(temp==1, temp+1, combined_targets_masked) # == 3 if both, 2 if father, otherwise 0 
+                temp = combined_targets_masked + targets_masked2 # == 4 if both, 2 if father, 1 if mother 
+                combined_targets_masked = torch.where(temp==1, temp, combined_targets_masked) # == 3 if both, 2 if father, 1 if mother, otherwise 0 
+                combined_targets_masked = torch.where(temp==-100, temp, combined_targets_masked)# == 3 if both, 2 if father, 1 if mother, -100 if masked, otherwise 0 
 
                 accuracy.update(combined_preds, combined_targets)
                 masked_recall.update(combined_preds, combined_targets_masked)
                 masked_accuracy.update(combined_preds, combined_targets_masked)
-                masked_IQS.update(combined_preds, combined_targets_masked)
+                masked_IQS.update(combined_preds, combined_targets_masked)          
 
 
             if  get_embeddings: ## TODO: Adjust for diploid case 
