@@ -114,12 +114,6 @@ def model_eval(model, optimizer, dataloader, device, get_embeddings=False, tempe
 
             preds = torch.argmax(logits, dim=1)
 
-            print("######################")
-            print(logits)
-            print(preds)
-            print(targets_masked)
-            print("")
-
             accuracy.update(preds, targets)
             masked_recall.update(preds, targets_masked)
             masked_accuracy.update(preds, targets_masked)
