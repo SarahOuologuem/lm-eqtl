@@ -91,6 +91,7 @@ class SequenceDataEncoder():
         self.frame = frame
     
     def __call__(self, seq, mask=None, buffer = (0,0)):
+
         return encode_and_pad(
             seq,
             mask=mask,

@@ -21,6 +21,7 @@ def model_train(model, optimizer, dataloader, device, silent=False):
     masked_recall = MeanRecall().to(device)
     masked_accuracy = MaskedAccuracy(smooth=True).to(device)
     masked_IQS = IQS().to(device)
+
     
     model.train() #model to train mode
 

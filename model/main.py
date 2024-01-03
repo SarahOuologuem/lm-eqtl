@@ -7,6 +7,7 @@
 import numpy as np
 import pandas as pd
 import pickle
+from itertools import chain
 
 import re
 
@@ -64,6 +65,7 @@ parser.add_argument("--learning_rate", help = "learning rate", type = float, def
 parser.add_argument("--dropout", help = "model dropout", type = float, default = 0., required = False)
 parser.add_argument("--weight_decay", help = "Adam weight decay", type = float, default = 0., required = False)
 parser.add_argument("--save_at", help = "epochs to save model/optimizer weights, 1-based", nargs='+', type = str, default = [], required = False)
+parser.add_argument("--device", help = "device to use", type = str, default = 'cuda', required = False)
 
 input_params = vars(parser.parse_args())
 
@@ -95,72 +97,92 @@ for param_name in ['output_dir', '\\',
 
 
 class SeqDataset(Dataset):
-
-    def __init__(self, seq_df, transform, max_augm_shift=0, 
-                 mode='train'):
-
-        if input_params.dataset.endswith('.fa'):
+    def __init__(self, seq_df, transform, max_augm_shift=0, mode="train"):
+        if input_params.dataset.endswith(".fa"):
             self.fasta = pysam.FastaFile(input_params.dataset)
         else:
             self.fasta = None
+
 
         self.seq_df = seq_df
         self.transform = transform
         self.max_augm_shift = max_augm_shift
         self.mode = mode
 
-    def __len__(self):
 
+    def __len__(self):
         return len(self.seq_df)
 
-    def __getitem__(self, idx):
 
+    def __getitem__(self, idx):
         if self.fasta:
             seq = self.fasta.fetch(self.seq_df.iloc[idx].seq_name).upper()
         else:
             seq = self.seq_df.iloc[idx].seq.upper()
 
-        shift = np.random.randint(self.max_augm_shift+1) #random shift at training, must be chunk_size-input_params.seq_len
 
-        seq = seq[shift:shift+input_params.seq_len] #shift the sequence and limit its size
+        shift = np.random.randint(
+            self.max_augm_shift + 1
+        )  # random shift at training, must be chunk_size-input_params.seq_len
 
-        seg_label = self.seq_df.iloc[idx].seg_label #label for segment-aware training
 
-        #for given genotype, randomly choose a haplotype for training/testing
-        if np.random.rand()>0.5:
-            seq = seq.replace('-','').replace('B','A').replace('F','A').replace('M','R')
-        else:
-            seq = seq.replace('-','').replace('B','A').replace('M','A').replace('F','R')
+        seq = seq[shift : shift + input_params.seq_len]  # shift the sequence and limit its size
 
-        #if input_params.masking == 'stratified_maf' and not input_params.test:
-        #    #select mask for the sequence depending on sequence coordinates w.r.t. contig
-        #    seg_name = self.seq_df.iloc[idx].seg_name
-        #    seq_mask = meta.loc[seg_name].MASK.values
-        #    masked_sequence, target_labels_masked, target_labels, _, _ = self.transform(seq, mask = seq_mask)
-        #else:
-        #    masked_sequence, target_labels_masked, target_labels, _, _ = self.transform(seq)
 
-        masked_sequence, target_labels_masked, target_labels, _, _ = self.transform(seq)
+        seg_label = self.seq_df.iloc[idx].seg_label  # label for segment-aware training
 
+
+        # create sequences for whole genotype (adjustments from Sarah)
+        seq1 = seq.replace("-", "").replace("B", "A").replace("F", "A").replace("M", "R") # father sequence
+        seq2 = seq.replace("-", "").replace("B", "A").replace("M", "A").replace("F", "R") # mother sequence
+
+
+        masked_sequence1, target_labels_masked1, target_labels1, _, _ = self.transform(seq1)
+        masked_sequence2, target_labels_masked2, target_labels2, _, _ = self.transform(seq2)
+
+
+        masked_sequence = torch.vstack((masked_sequence1, masked_sequence2))
+        seg_label = torch.vstack((torch.tensor(seg_label), torch.tensor(seg_label)))
         masked_sequence = (masked_sequence, seg_label)
 
+
+        target_labels_masked = torch.vstack((target_labels_masked1, target_labels_masked2))
+        target_labels = torch.vstack((target_labels1, target_labels2))
+        seq = (seq1, seq2)
         return masked_sequence, target_labels_masked, target_labels, seq
 
     def close(self):
         self.fasta.close()
 
+def collate_fn(batch):  # by Sarah
+    # masked sequence
+    masked_sequence = [x[0][0] for x in batch]
+    masked_sequence = [torch.stack(torch.split(d, 3)) for d in masked_sequence]
+    masked_sequence = torch.concat(masked_sequence)
+    # seg labels
+    seg_labels = [x[0][1] for x in batch]
+    seg_labels = torch.concat(seg_labels).flatten()
+    # target labels masked
+    target_labels_masked = [x[1] for x in batch]
+    target_labels_masked = torch.concat(target_labels_masked)
+    # target labels
+    target_labels = [x[2] for x in batch]
+    target_labels = torch.concat(target_labels)
+    # seq
+    seqs = [x[3] for x in batch]
+    seqs = tuple(chain.from_iterable(seqs))
+    return (masked_sequence, seg_labels), target_labels_masked, target_labels, seqs
+
 
 # In[5]:
 
 
-if torch.cuda.is_available():
+if input_params.device == 'cuda' and torch.cuda.is_available():
     device = torch.device('cuda')
     print('\nCUDA device: GPU\n')
-else:
-    device = torch.device('cpu')
+else: 
+    device = torch.device("cpu")
     print('\nCUDA device: CPU\n')
-    #raise Exception('CUDA is not found')
-
 
 
 gc.collect()
@@ -218,7 +240,6 @@ seq_df[['split','sample_id','seg_name']] =  seq_df['seq_name'].str.split(':',exp
 
 # In[10]:
 
-
 if not input_params.agnostic:
     #for segment-aware model, assign a label to each segment
     seg_name = seq_df.seq_name.apply(lambda x:':'.join(x.split(':')[2:]))
@@ -255,7 +276,7 @@ if not input_params.test:
         test_df = seq_df[seq_df.sample_id.isin(val_samples)]
         
         test_dataset = SeqDataset(test_df, transform = seq_transform, mode='eval')
-        test_dataloader = DataLoader(dataset = test_dataset, batch_size = input_params.batch_size, num_workers = 0, collate_fn = None, shuffle = False)
+        test_dataloader = DataLoader(dataset = test_dataset, batch_size = input_params.batch_size, num_workers = 0, collate_fn = collate_fn, shuffle = False)
     
     else:
         train_df = seq_df
@@ -269,7 +290,7 @@ if not input_params.test:
     train_df['train_fold'] = train_fold[:N_train]
 
     train_dataset = SeqDataset(train_df, transform = seq_transform,  mode='train')
-    train_dataloader = DataLoader(dataset = train_dataset, batch_size = input_params.batch_size, num_workers = 2, collate_fn = None, shuffle = False)
+    train_dataloader = DataLoader(dataset = train_dataset, batch_size = input_params.batch_size, num_workers = 2, collate_fn = collate_fn, shuffle = False)
 
 
 elif input_params.get_embeddings:
@@ -281,7 +302,7 @@ elif input_params.get_embeddings:
 
     test_dataset = SeqDataset(seq_df, transform = seq_transform, mode='eval')
 
-    test_dataloader = DataLoader(dataset = test_dataset, batch_size = 1, num_workers = 1, collate_fn = None, shuffle = False)
+    test_dataloader = DataLoader(dataset = test_dataset, batch_size = 1, num_workers = 1, collate_fn = collate_fn, shuffle = False)
 
 else:
 
@@ -291,7 +312,9 @@ else:
                                                       mask_rate = input_params.mask_rate, split_mask = input_params.split_mask)
 
     test_dataset = SeqDataset(seq_df, transform = seq_transform, mode='eval')
-    test_dataloader = DataLoader(dataset = test_dataset, batch_size = input_params.batch_size, num_workers = 2, collate_fn = None, shuffle = False)
+    test_dataloader = DataLoader(dataset = test_dataset, batch_size = input_params.batch_size, num_workers = 2, collate_fn = collate_fn, shuffle = False)
+
+
 
 
 # In[13]:
@@ -360,8 +383,8 @@ if not input_params.test:
 
             meta = get_random_mask()
 
+        
         train_dataset.seq_df = train_df[train_df.train_fold == (epoch-1) % input_params.train_splits]
-        print(f'using train samples: {list(train_dataset.seq_df.index[[0,-1]])}')
 
         train_metrics = train_eval.model_train(model, optimizer, train_dataloader, device,
                             silent = 1)

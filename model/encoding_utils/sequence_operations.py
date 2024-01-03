@@ -37,7 +37,6 @@ def random_masking(
     #print (mask_rate)
     #print(split_mask)
     #print(frame)
-
     mask = np.zeros(len(seq_vector), dtype=int)
 
     # if sequence to small
@@ -83,6 +82,7 @@ def random_masking(
 
     # make everything 1
     mask[mask!=0] = 1
+
 
     #assert sum(mask)
 
@@ -165,7 +165,7 @@ def encode_and_pad(
             masked_seq[idx_masked[int(0.8*N_idx):int(0.9*N_idx)]] = [one_hot(mapping[np.random.choice(list(bases))]) for i in range(int(0.8*N_idx),int(0.9*N_idx))]
         else:
             masked_seq[mask==1] = np.zeros(Nclasses)
-        
+
     elif isinstance(mask_rate,Iterable):
         mask_rate = list(mask_rate)
         mask_rate_N = np.max(mask_rate) #mask rate for N, we take max of (mask_rate_ref, mask_ret_alt) since Ns are rare
