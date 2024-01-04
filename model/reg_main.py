@@ -4,7 +4,8 @@ import pickle
 import gc
 import os
 import re
-from tqdm import tqdm
+import wandb
+
 import sys
 import pysam
 import torch
@@ -16,8 +17,7 @@ from encoding_utils import sequence_encoders
 import helpers.train_eval_a as train_eval    #train and evaluation
 import helpers.misc as misc                #miscellaneous functions
 from models.spec_dss import DSSResNetEmb, SpecAdd, DSSResNetExpression
-from helpers.metrics import MeanRecall, MaskedAccuracy, IQS
-from helpers.misc import EMA, print_class_recall
+
 
 
 
@@ -43,7 +43,7 @@ parser.add_argument("--seq_len", help = "max sequence length", type = int, defau
 parser.add_argument("--train_splits", help = "split each epoch into N epochs", type = int, default = 1, required = False)
 parser.add_argument("--fold", help = "current fold", type = int, default = None, required = False)
 parser.add_argument("--Nfolds", help = "total number of folds", type = int, default = None, required = False)
-parser.add_argument("--tot_epochs", help = "total number of training epochs, (after splitting)", type = int, default = 100, required = False)
+parser.add_argument("--tot_epochs", help = "total number of training epochs, (after splitting)", type = int, default = 10, required = False)
 parser.add_argument("--d_model", help = "model dimensions", type = int, default = 256, required = False)
 parser.add_argument("--n_layers", help = "number of layers", type = int, default = 16, required = False)
 parser.add_argument("--batch_size", help = "batch size", type = int, default = 16, required = False)
@@ -57,7 +57,8 @@ input_params = vars(parser.parse_args())
 
 input_params = misc.dotdict(input_params)
 
-input_params.save_at = misc.list2range(input_params.save_at)
+# input_params.save_at = misc.list2range(input_params.save_at)
+input_params.save_at = [1, 3, 5, 10]
 
 if len(input_params.mask_rate)==1:
     input_params.mask_rate = input_params.mask_rate[0]
@@ -97,13 +98,7 @@ else:
     seq_df['seg_label'] = 0
 
 
-if input_params.test:
-    seq_df = seq_df[seq_df.split=='test']
-else:
-    seq_df = seq_df[seq_df.split!='test']
-
-
-# load the expression data
+# load the expression data and take samples that have expression values
 print("Loading expression data...")
 expression_data = pd.read_csv(input_params.expression_data, sep="\t")\
     .rename(columns=lambda x: re.sub("\..*",'',x))\
@@ -182,6 +177,9 @@ class ExpressionDataset(SeqDataset):
         super().__init__(*args, **kwargs)
         pass
 
+    def __len__(self):
+        return len(self.seq_df)
+
     def __getitem__(self, idx): 
         if self.fasta:
             seq = self.fasta.fetch(self.seq_df.iloc[idx].seq_name).upper()
@@ -211,7 +209,7 @@ class ExpressionDataset(SeqDataset):
 
         return masked_sequence, target_labels_masked, target_labels, seq, seq_expr
 
-
+    
 def collate_expression_fn(data):
     """collate fn that adds expression values for each sequence.
     """ 
@@ -236,13 +234,12 @@ def collate_expression_fn(data):
     # repeat each element twice, once for each haplotype
     seg_expr = torch.Tensor(seg_expr).repeat_interleave(2)
 
-    return (masked_sequence, seg_labels, seg_expr),target_labels_masked, target_labels, seqs#os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"
+    return (masked_sequence, seg_labels, seg_expr),target_labels_masked, target_labels, seqs
 
 
-def metrics_to_str(metrics):
-    expr_loss, loss, accuracy, masked_acc, masked_recall, masked_IQS = metrics
-    return f'expr_loss: {expr_loss:.4}, loss: {loss:.4}, acc: {accuracy:.4}, masked acc: {masked_acc:.4}, {misc.print_class_recall(masked_recall, "masked recall: ")}, masked IQS: {masked_IQS:.4}'
-
+from helpers.metrics import MeanRecall, MaskedAccuracy, IQS
+from helpers.misc import EMA, print_class_recall
+from tqdm import tqdm
 
 def train_reg_model(model, optimizer, dataloader, device, silent=False):
     """train function with added regression loss"""
@@ -285,7 +282,12 @@ def train_reg_model(model, optimizer, dataloader, device, silent=False):
         #if max_abs_grad:
         #    torch.nn.utils.clip_grad_value_(model.parameters(), max_abs_grad)
 
+
+
         optimizer.step()
+
+        if itr_idx % 10 == 0:
+            wandb.log({"expr_loss": expr_loss, "loss": loss})
 
         smoothed_loss = loss_EMA.update(loss.item())
 
@@ -305,7 +307,6 @@ def train_reg_model(model, optimizer, dataloader, device, silent=False):
         del pbar
 
     return expr_loss, loss, accuracy, masked_accuracy, masked_recall, masked_IQS
-
 
 ####################################################################################
 
@@ -366,15 +367,10 @@ model = model.to(device)
 # load the weights
 model.load_state_dict(torch.load(input_params.model_weight, map_location=device), strict=False)
 
-# # get the encoder part of the model
-# encoder = DSSResNetEncoder(full_model)
-
-# model = DSSResNetExpression(encoder = encoder, d_encoder = 256, d_output = 1, freeze_encoder = True)
-
 # define which layers to freeze
-for param, weights in model.state_dict().items(): 
-    if not param.startswith("regression"):
-        weights.requires_grad = False
+for param_idx, (param_name, param) in enumerate(model.named_parameters()): 
+    if not param_name.startswith("regression"):
+        param.requires_grad = False
 
 model_params = [p for p in model.parameters() if p.requires_grad]
 
@@ -394,9 +390,20 @@ last_epoch = 0
 
 clear_output()
 
+wandb.init(project="lm-eqtl")
+
+with open("train_dataloader.pkl", "wb") as f:
+    pickle.dump(train_dataloader, f)
+with open("test_dataloader.pkl", "wb") as f:
+    pickle.dump(test_dataloader, f)
+
 #from helpers.misc import print    #print function that displays time
+    
+wandb.watch(model, log_freq=100)
 
 if not input_params.test:
+
+    print("Total samples in train set: ", len(train_df))
 
     for epoch in range(last_epoch+1, input_params.tot_epochs+1):
 
@@ -407,26 +414,25 @@ if not input_params.test:
         #    meta = get_random_mask()
 
         train_dataset.seq_df = train_df[train_df.train_fold == (epoch-1) % input_params.train_splits]
-        print(f'using train samples: {list(train_dataset.seq_df.index[[0,-1]])}')
 
         train_metrics = train_reg_model(model, optimizer, train_dataloader, device,
                             silent = False)
             
-        print(f'epoch {epoch} - train, {metrics_to_str(train_metrics)}')
+        # print(f'epoch {epoch} - train, {metrics_to_str(train_metrics)}')
 
         if epoch in input_params.save_at: #save model weights
 
             misc.save_model_weights(model, optimizer, weights_dir, epoch)
 
-        if test_df is not None  and ( epoch==input_params.tot_epochs or
-                            (input_params.validate_every and epoch%input_params.validate_every==0)):
+        # if test_df is not None  and ( epoch==input_params.tot_epochs or
+        #                     (input_params.validate_every and epoch%input_params.validate_every==0)):
 
-            print(f'EPOCH {epoch}: Validating...')
+        #     print(f'EPOCH {epoch}: Validating...')
 
-            val_metrics, *_ =  train_eval.model_eval(model, optimizer, test_dataloader, device,
-                    silent = False)
+        #     val_metrics, *_ =  train_eval.model_eval(model, optimizer, test_dataloader, device,
+        #             silent = False)
 
-            print(f'epoch {epoch} - validation, {metrics_to_str(val_metrics)}')
+        #     print(f'epoch {epoch} - validation, {metrics_to_str(val_metrics)}')
             
         #lr_scheduler.step()
 else:

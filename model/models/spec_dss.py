@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+import pickle
 
 from .dss import DSS
 
@@ -403,9 +404,18 @@ class DSSResNetExpression(nn.Module):
         """
         Input x is shape (B, d_input, L)
         """
-
+        u = x
         x = self.encoder(x)  # (B, d_input, L) -> (B, d_model, L)
-        
+
+        if any(torch.isnan(x).flatten()):
+            debug_data = {
+                "pre_encoder": u, 
+                "post_encoder": x, 
+                "encoder": self.encoder
+            }
+            with open("debug.pkl", "wb") as f:
+                pickle.dump(debug_data, f)
+            raise Exception("NaN in input to DSSResNet")
 
         if self.embed_before:
             x = self.species_encoder(x,xs)
