@@ -435,7 +435,7 @@ class DSSResNetExpression(nn.Module):
         seq_embedding = x
 
         # sum the embeddings across the sequence length dimension
-        aggregated_embs = seq_embedding.sum(dim=-1)
+        aggregated_embs = seq_embedding.mean(dim=-1)
         reg_y = self.regression_head(aggregated_embs)
 
         x = self.decoder(x)  # (B, d_model, L) -> (B, d_output, L)
