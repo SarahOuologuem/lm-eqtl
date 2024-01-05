@@ -100,6 +100,14 @@ while [[ $# -gt 0 ]]; do
             wandb_proj="${2:-lm_eqtl}"
             shift 2
             ;;
+        --haplotypes=*)
+            haplotypes="${1#*=}"
+            shift
+            ;;
+        --haplotypes)
+            haplotypes="${2:-False}"
+            shift 2
+            ;;
         *)
             shift
             ;;
@@ -118,6 +126,7 @@ device="${device:-$default_device}"
 run_name="${run_name:-''}"
 log_wandb="${log_wandb:-False}"
 wandb_proj="${wandb_proj:-lm_eqtl}"
+haplotypes="${haplotypes:-False}"
 
 
 echo
@@ -134,6 +143,7 @@ echo "device: $device"
 echo "run_name: $run_name"
 echo "log_wandb: $log_wandb"
 echo "wandb_proj: $wandb_proj"
+echo "haplotypes: $haplotypes"
 echo "----------------------"
 echo
 
@@ -149,7 +159,8 @@ python $prog \
     --device $device \
     --run_name $run_name \
     --log_wandb $log_wandb \
-    --wandb_proj $wandb_proj
+    --wandb_proj $wandb_proj \
+    --haplotypes $haplotypes
     
 
 

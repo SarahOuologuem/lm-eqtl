@@ -10,3 +10,8 @@ logs/
 /checkpoints/
 /datasets/
 data.zip
+results
+outputs/
+*.out
+wandb/
+extdata/

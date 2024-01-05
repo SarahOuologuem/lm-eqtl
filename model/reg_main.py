@@ -178,6 +178,8 @@ else:
     dataset = GenoDataset
     collator = ExpressionCollator(haplotypes=False)
 
+print("DATASET", dataset)
+
 if not input_params.test: #Train and Validate
     seq_transform = sequence_encoders.SequenceDataEncoder(seq_len = input_params.seq_len, total_len = input_params.seq_len,
                                                       mask_rate = input_params.mask_rate, split_mask = input_params.split_mask)
@@ -262,7 +264,7 @@ last_epoch = 0
 
 if input_params.log_wandb:
     wandb.init(project=input_params.wandb_proj, name=input_params.run_name) # seq_len, batch_size, geno or haplo, loss (full = reg + masked)
-    wandb.watch(model, log_freq=100)
+    wandb.watch(model, log_freq=1)
 
 if not input_params.test:
 
