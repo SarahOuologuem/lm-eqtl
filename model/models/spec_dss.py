@@ -226,24 +226,6 @@ class DSSResNetEmb(nn.Module):
         return x, embeddings
     
 
-class DSSResNetExpression(nn.Module): 
-    """DSSResNet with added regression head"""
-
-    def __init__(self, resnet_model, *args, **kwargs): 
-        
-        self.resnet_model = resnet_model
-
-        self.model = nn.Sequential(
-            nn.Linear()
-        )
-        pass
-
-    def forward(self): 
-        pass
-
-
-
-
 
 class DSSResNet2(nn.Module):
     def __init__(

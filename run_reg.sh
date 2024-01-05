@@ -9,6 +9,7 @@ default_device=cpu
 default_batch_size=16
 default_seq_len=5000
 
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --prog=*)
@@ -75,6 +76,30 @@ while [[ $# -gt 0 ]]; do
             device="${2:-default_device}"
             shift 2
             ;;
+        --run_name=*)
+            run_name="${1#*=}"
+            shift
+            ;;
+        --run_name)
+            run_name="${2:-''}"
+            shift 2
+            ;;
+        --log_wandb=*)
+            log_wandb="${1#*=}"
+            shift
+            ;;
+        --log_wandb)
+            log_wandb="${2:-False}"
+            shift 2
+            ;;
+        --wandb_proj=*)
+            wandb_proj="${1#*=}"
+            shift
+            ;;
+        --wandb_proj)
+            wandb_proj="${2:-lm_eqtl}"
+            shift 2
+            ;;
         *)
             shift
             ;;
@@ -90,6 +115,9 @@ expression_data="${expression_data:-$default_expression_data}"
 batch_size="${batch_size:-$default_batch_size}"
 seq_len="${seq_len:-$default_seq_len}"
 device="${device:-$default_device}"
+run_name="${run_name:-''}"
+log_wandb="${log_wandb:-False}"
+wandb_proj="${wandb_proj:-lm_eqtl}"
 
 
 echo
@@ -103,6 +131,9 @@ echo "expression_data: $expression_data"
 echo "batch_size: $batch_size"
 echo "seq_len: $seq_len"
 echo "device: $device"
+echo "run_name: $run_name"
+echo "log_wandb: $log_wandb"
+echo "wandb_proj: $wandb_proj"
 echo "----------------------"
 echo
 
@@ -115,7 +146,11 @@ python $prog \
     --expression_data $expression_data \
     --batch_size $batch_size \
     --seq_len $seq_len \
-    --device $device
+    --device $device \
+    --run_name $run_name \
+    --log_wandb $log_wandb \
+    --wandb_proj $wandb_proj
+    
 
 
 
