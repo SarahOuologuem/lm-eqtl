@@ -41,7 +41,7 @@ parser.add_argument("--agnostic", help = "use a pecies agnostic version", defaul
 parser.add_argument("--mask_at_test", help = "test on masked sequences", action='store_true', default = True, required = False)
 parser.add_argument("--seq_len", help = "max sequence length", type = int, default = 5000, required = False)
 parser.add_argument("--train_splits", help = "split each epoch into N epochs", type = int, default = 1, required = False)
-parser.add_argument("--fold", help = "current fold", type = int, default = None, required = False)
+parser.add_argument("--fold", help = "current fold", type = int, default = 0, required = False)
 parser.add_argument("--Nfolds", help = "total number of folds", type = int, default = None, required = False)
 parser.add_argument("--tot_epochs", help = "total number of training epochs, (after splitting)", type = int, default = 10, required = False)
 parser.add_argument("--d_model", help = "model dimensions", type = int, default = 256, required = False)
