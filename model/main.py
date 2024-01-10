@@ -230,7 +230,7 @@ class SeqDataset(Dataset):
         self.fasta.close()
 
 
-def collate_fn(data):  # Sarah's collate fn
+def collate_fn(data):  
     # masked sequence
     masked_sequence = [x[0][0] for x in data]
     masked_sequence = [torch.stack(torch.split(d, 3)) for d in masked_sequence]
@@ -250,7 +250,7 @@ def collate_fn(data):  # Sarah's collate fn
     return (masked_sequence, seg_labels), target_labels_masked, target_labels, seqs
 
 
-def collate_fn_get_embeddings(data):  # Sarah's collate fn for testing with get_ebeddings = True
+def collate_fn_get_embeddings(data):  # for testing with get_ebeddings = True
     # masked sequence
     masked_sequence = [x[0][0] for x in data]
     # 50 = mask_stride of sequence_encoders.RollingMasker
