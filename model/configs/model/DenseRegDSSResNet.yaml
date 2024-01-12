@@ -9,4 +9,4 @@ n_layers: 16
 dropout: 0
 prenorm: False
 species_encoder: null
-embed_before: False
+embed_before: True

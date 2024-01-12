@@ -4,24 +4,24 @@ defaults:
   - model: DenseRegDSSResNet
   - dataset: ExpressionDataset # must have a variable "haplotype: bool"
 
-split_mask: True
-mask_rate: 0.2
-masking: null
+split_mask: True # DONT CHANGE
+mask_rate: 0.2 # DONT CHANGE
+masking: null # DONT CHANGE
 validate_every: 1
 
-test: True
+test: False
 
 dataset_path: "extdata/datasets/phase3_top10/dataset.parquet"
 model_weights: "extdata/checkpoints/phase3_top10/aware_large_splitmsk/weights/epoch_100_weights_model.pt"
 expression_data: "extdata/GD660.GeneQuantRPKM.txt.gz"
 output_dir: results
 
-get_embeddings: False
-agnostic: False
-mask_at_test: False
+get_embeddings: False # DONT CHANGE
+agnostic: False # DONT CHANGE
+mask_at_test: True # DONT CHANGE
 train_splits: 1
-fold: 0
-Nfolds: 5
+fold: 0 # DONT CHANGE
+Nfolds: 5 # DONT CHANGE
 tot_epochs: 1
 batch_size: 16
 learning_rate: 1e-3
@@ -31,11 +31,9 @@ save_at: [1, 2, 3, 4, 5]
 
 optimizer_weight: null
 
-
-
-
 device: cpu
 log_wandb: False
 proj_name: "lm_eqtl"
 run_name: ""
+
 

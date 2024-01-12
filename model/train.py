@@ -29,7 +29,6 @@ from model.models.regression.train_eval import train_reg_model, eval_reg_model
 from model.models.regression.datasets import GenoDataset, HaploDataset, ExpressionCollator
 
 
-
 def train(cfg: DictConfig) -> None:
     print("training...")
 
@@ -62,22 +61,22 @@ def train(cfg: DictConfig) -> None:
     seq_expression_df = pd.merge(seq_df, expression_data, left_on=["sample_id", "seg_name"], right_on=["sample_id", "Gene_Symbol"])
 
     # define test_set
-    test_indices = np.random.randint(0, len(seq_expression_df), size=int(0.1*len(seq_expression_df)))
-    save_path = os.path.join(
-        cfg.output_dir, 
-        cfg.proj_name,
-        cfg.run_name, 
-        "test_set_indices.pkl"
-    )
+    # test_indices = np.random.randint(0, len(seq_expression_df), size=int(0.1*len(seq_expression_df)))
+    # save_path = os.path.join(
+    #     cfg.output_dir, 
+    #     cfg.proj_name,
+    #     cfg.run_name, 
+    #     "test_set_indices.pkl"
+    # )
 
-    if not os.path.exists(os.path.dirname(save_path)): 
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    # if not os.path.exists(os.path.dirname(save_path)): 
+    #     os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
-    # save the test indices
-    with open(save_path, "wb") as f:
-        pickle.dump(test_indices, f)
+    # # save the test indices
+    # with open(save_path, "wb") as f:
+    #     pickle.dump(test_indices, f)
 
-    seq_expression_df = seq_expression_df.loc[~seq_expression_df.index.isin(test_indices)]
+    # seq_expression_df = seq_expression_df.loc[~seq_expression_df.index.isin(test_indices)]
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # SELECT DEVICE
@@ -93,7 +92,6 @@ def train(cfg: DictConfig) -> None:
     gc.collect()
     torch.cuda.empty_cache()
 
-
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # DATASET SETUP
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -104,17 +102,18 @@ def train(cfg: DictConfig) -> None:
     # instantiating the dataset
     dataset_factory = hydra.utils.instantiate(cfg.dataset)
 
+    # Using a fold for validation
     if cfg.fold is not None: 
         print("Using fold: ", cfg.fold)
         samples = seq_expression_df.sample_id.unique()
         val_samples = samples[cfg.fold::cfg.Nfolds] 
         train_df = seq_expression_df[~seq_expression_df.sample_id.isin(val_samples)] 
-        test_df = seq_expression_df[seq_expression_df.sample_id.isin(val_samples)]
-        test_dataset = dataset_factory(
-            seq_df=test_df, 
+        val_df = seq_expression_df[seq_expression_df.sample_id.isin(val_samples)]
+        val_dataset = dataset_factory(
+            seq_df=val_df, 
             transform = seq_transform
         )
-        test_dataloader = DataLoader(dataset = test_dataset, batch_size = cfg.batch_size, num_workers = 0, collate_fn = collator, shuffle = False)
+        val_dataloader = DataLoader(dataset = val_dataset, batch_size = cfg.batch_size, num_workers = 0, collate_fn = collator, shuffle = False)
 
         # save the dataloader
         with open(
@@ -122,15 +121,15 @@ def train(cfg: DictConfig) -> None:
                 cfg.output_dir, 
                 cfg.proj_name,
                 cfg.run_name, 
-                f"test_dataloader_fold_{cfg.fold}.pkl"
+                f"val_dataloader_fold_{cfg.fold}.pkl"
             ), "wb"
         ) as pkl: 
-            pickle.dump(test_dataloader, pkl)
+            pickle.dump(val_dataloader, pkl)
+        print("Samples in val_set: ", len(val_df))
 
     else: 
         print("No fold specified, using all data for training")
         train_df = seq_expression_df
-
 
     N_train = len(train_df)
     train_fold = np.repeat(list(range(cfg.train_splits)),repeats = N_train // cfg.train_splits + 1 )
@@ -163,6 +162,7 @@ def train(cfg: DictConfig) -> None:
         pickle.dump(model, f)
     model = model.to(device)
 
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Freeze layers
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -185,10 +185,6 @@ def train(cfg: DictConfig) -> None:
     # LOAD MODEL WEIGHTS
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-
-    print("Sample Model weights before loading: ")
-    print(list(model.parameters())[0][0][0][:10])
-
     print("\n Loading model weights... \n")
     if cfg.model_weights:
         if torch.cuda.is_available():
@@ -201,10 +197,6 @@ def train(cfg: DictConfig) -> None:
             model.load_state_dict(torch.load(cfg.model_weights, map_location=torch.device('cpu')), strict=False)
             if cfg.optimizer_weight:
                 optimizer.load_state_dict(torch.load(cfg.optimizer_weight, map_location=torch.device('cpu')))
-
-    print("Sample Model weights after loading: ")
-    print(list(model.parameters())[0][0][0][:10])
-
 
     # setup wandb
     if cfg.log_wandb:
@@ -244,7 +236,7 @@ def train(cfg: DictConfig) -> None:
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     if cfg.fold is not None: 
         print("\n Testing model... \n")
-        test_metrics = eval_reg_model(model, test_dataloader, device, silent=False)
+        test_metrics = eval_reg_model(model, val_dataloader, device, silent=False)
         print("\nTest metrics: \n")
         print("avg_loss:", test_metrics["avg_loss"])
         print("avg_reg_loss:", test_metrics["avg_reg_loss"])
@@ -262,7 +254,6 @@ def train(cfg: DictConfig) -> None:
         print("R^2: ", r_value**2)
         print("Slope: ", slope)
         print("P-value: ", p_value)
-
 
 
 @hydra.main(version_base=None, config_path="configs/", config_name="train")
