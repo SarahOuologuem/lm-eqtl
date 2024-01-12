@@ -66,7 +66,11 @@ def save_model_weights(model, optimizer, output_dir, epoch):
     '''
     Save model and optimizer weights
     '''
+
     config_save_base = os.path.join(output_dir, f'epoch_{epoch}_weights')
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
     print(f'EPOCH:{epoch}: SAVING MODEL, CONFIG_BASE: {config_save_base}\n')
 

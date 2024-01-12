@@ -373,3 +373,6 @@ def model_eval(model, dataloader, device, diploid = False,get_embeddings = False
         del pbar
 
     return (avg_loss/(itr_idx+1), accuracy.compute(), masked_accuracy.compute(), masked_recall.compute(), masked_IQS.compute()), all_embeddings, motif_probas
+
+
+

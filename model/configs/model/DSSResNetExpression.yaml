@@ -1,4 +1,4 @@
-_target_: model.models.regression.models.DenseRegDSSResNet
+_target_: model.models.spec_dss.DSSResNetExpression
 
 _partial_: True
 

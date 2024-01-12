@@ -3,10 +3,8 @@ _target_: model.models.regression.datasets.ExpressionDataset
 
 _partial_: True
 
-seq_df: null
 use_haplotypes: False
 transform: null
-dataset_path: null
 seq_len: 5000
 max_augm_shift: 0
 

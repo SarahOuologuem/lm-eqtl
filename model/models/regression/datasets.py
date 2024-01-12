@@ -6,13 +6,10 @@ from itertools import chain
 
 
 class GenoDataset(Dataset):
-    def __init__(self, seq_df, transform, dataset_path, seq_len, max_augm_shift=0, 
+    def __init__(self, seq_df, transform, seq_len, max_augm_shift=0, 
                  mode='train', regression=False):
 
-        if dataset_path.endswith('.fa'):
-            self.fasta = pysam.FastaFile(dataset_path)
-        else:
-            self.fasta = None
+        self.fasta = None
 
         self.seq_df = seq_df
         self.transform = transform
@@ -107,9 +104,9 @@ class HaploDataset(Dataset):
 
         return masked_sequence, target_labels_masked, target_labels, seq
         
-
     def close(self):
         self.fasta.close()
+
 
 class ExpressionCollator(object): 
     def __init__(self, haplotypes=False): 
@@ -168,13 +165,9 @@ class ExpressionCollator(object):
 
 
 class ExpressionDataset(Dataset):
-    def __init__(self, seq_df, use_haplotypes, transform, dataset_path, seq_len, max_augm_shift=0):
+    def __init__(self, seq_df, use_haplotypes, transform, seq_len, max_augm_shift=0):
 
-        if dataset_path.endswith('.fa'):
-            self.fasta = pysam.FastaFile(dataset_path)
-        else:
-            self.fasta = None
-
+        self.fasta = None
         self.seq_df = seq_df
         self.transform = transform
         self.max_augm_shift = max_augm_shift
@@ -211,11 +204,9 @@ class ExpressionDataset(Dataset):
             target_labels = torch.vstack((target_labels1, target_labels2))
             seq = (seq1, seq2)
 
-            if self.regression: 
-                seq_expr = self.seq_df.iloc[idx].expr.astype(np.float32)
-                return masked_sequence, target_labels_masked, target_labels, seq, seq_expr
+            seq_expr = self.seq_df.iloc[idx].expr.astype(np.float32)
+            return masked_sequence, target_labels_masked, target_labels, seq, seq_expr
 
-            return masked_sequence, target_labels_masked, target_labels, seq
         
         else: 
         

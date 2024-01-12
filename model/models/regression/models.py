@@ -144,9 +144,13 @@ class DenseRegDSSResNet(nn.Module):
 
         seq_embedding = x
 
+        print("EMB BEFORE AGG: ", seq_embedding.size())
+
         # sum the embeddings across the sequence length dimension
         aggregated_embs = seq_embedding.mean(dim=-1)
         reg_y = self.regression_head(aggregated_embs)
+
+        print("EMB AFTER AGG: ", seq_embedding.size())
 
         x = self.decoder(x)  # (B, d_model, L) -> (B, d_output, L)
 

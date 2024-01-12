@@ -389,16 +389,6 @@ class DSSResNetExpression(nn.Module):
         u = x
         x = self.encoder(x)  # (B, d_input, L) -> (B, d_model, L)
 
-        if any(torch.isnan(x).flatten()):
-            debug_data = {
-                "pre_encoder": u, 
-                "post_encoder": x, 
-                "encoder": self.encoder
-            }
-            with open("debug.pkl", "wb") as f:
-                pickle.dump(debug_data, f)
-            raise Exception("NaN in input to DSSResNet")
-
         if self.embed_before:
             x = self.species_encoder(x,xs)
 
@@ -427,8 +417,6 @@ class DSSResNetExpression(nn.Module):
                 # Postnorm
                 x = norm(x.transpose(-1, -2)).transpose(-1, -2)
 
-
-        
         if not self.embed_before:
             x = self.species_encoder(x,xs)
 

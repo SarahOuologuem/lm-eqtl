@@ -191,7 +191,7 @@ if not input_params.test: #Train and Validate
         val_samples = samples[input_params.fold::input_params.Nfolds] 
         train_df = seq_expression_df[~seq_expression_df.sample_id.isin(val_samples)] 
         test_df = seq_expression_df[seq_expression_df.sample_id.isin(val_samples)]
-        test_dataset = dataset(test_df, transform = seq_transform, dataset_path=input_params.dataset, seq_len=input_params.seq_len, mode='eval', regression=True)
+        test_dataset = dataset(test_df, transform = seq_transform, seq_len=input_params.seq_len, mode='eval')
         test_dataloader = DataLoader(dataset = test_dataset, batch_size = input_params.batch_size, num_workers = 0, collate_fn = collator, shuffle = False)
     else:
         train_df = seq_expression_df
@@ -202,7 +202,7 @@ if not input_params.test: #Train and Validate
     train_fold = np.repeat(list(range(input_params.train_splits)),repeats = N_train // input_params.train_splits + 1 )
     train_df['train_fold'] = train_fold[:N_train]
     # create training dataset & dataloader 
-    train_dataset = dataset(train_df, transform = seq_transform, dataset_path=input_params.dataset, seq_len=input_params.seq_len,  mode='train', regression=True)
+    train_dataset = dataset(train_df, transform = seq_transform, seq_len=input_params.seq_len,  mode='train')
     train_dataloader = DataLoader(dataset = train_dataset, batch_size = input_params.batch_size, num_workers = 2, collate_fn = collator, shuffle = False)
 
 elif input_params.get_embeddings:
@@ -211,7 +211,7 @@ elif input_params.get_embeddings:
     else:
         seq_transform = sequence_encoders.PlainOneHot(frame = 0, padding = 'none')
     # create test dataset & dataloader 
-    test_dataset = dataset(seq_expression_df, transform = seq_transform, mode='eval', dataset_path=input_params.dataset, seq_len=input_params.seq_len, regression=True)
+    test_dataset = dataset(seq_expression_df, transform = seq_transform, mode='eval', seq_len=input_params.seq_len)
     test_dataloader = DataLoader(dataset = test_dataset, batch_size = 1, num_workers = 1, collate_fn = collator, shuffle = False)
 
 else: #Test
@@ -219,7 +219,7 @@ else: #Test
     seq_transform = sequence_encoders.SequenceDataEncoder(seq_len = input_params.seq_len, total_len = input_params.seq_len,
                                                       mask_rate=input_params.mask_rate, split_mask = input_params.split_mask)
     # create test dataset & dataloader 
-    test_dataset = dataset(seq_expression_df, transform = seq_transform, mode='eval', dataset_path=input_params.dataset, seq_len=input_params.seq_len, regression=True)
+    test_dataset = dataset(seq_expression_df, transform = seq_transform, mode='eval', seq_len=input_params.seq_len)
     test_dataloader = DataLoader(dataset = test_dataset, batch_size = input_params.batch_size, num_workers = 2, collate_fn = collator, shuffle = False)
 
 

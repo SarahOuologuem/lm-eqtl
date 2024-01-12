@@ -9,22 +9,33 @@ mask_rate: 0.2
 masking: null
 validate_every: 1
 
-test: False
+test: True
+
+dataset_path: "extdata/datasets/phase3_top10/dataset.parquet"
+model_weights: "extdata/checkpoints/phase3_top10/aware_large_splitmsk/weights/epoch_100_weights_model.pt"
+expression_data: "extdata/GD660.GeneQuantRPKM.txt.gz"
+output_dir: results
 
 get_embeddings: False
 agnostic: False
 mask_at_test: False
-seq_len: 5000
 train_splits: 1
 fold: 0
-tot_epochs: 5
+Nfolds: 5
+tot_epochs: 1
 batch_size: 16
 learning_rate: 1e-3
+dropout: 0
 weight_decay: 0
 save_at: [1, 2, 3, 4, 5]
 
+optimizer_weight: null
+
+
+
+
 device: cpu
 log_wandb: False
-wandb_proj: "lm_eqtl"
+proj_name: "lm_eqtl"
 run_name: ""
 
