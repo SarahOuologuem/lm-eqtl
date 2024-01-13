@@ -22,9 +22,9 @@ mask_at_test: True # DONT CHANGE
 train_splits: 1
 fold: 0 # DONT CHANGE
 Nfolds: 5 # DONT CHANGE
-tot_epochs: 1
+tot_epochs: 5
 batch_size: 16
-learning_rate: 1e-3
+learning_rate: 1e-4
 dropout: 0
 weight_decay: 0
 save_at: [1, 2, 3, 4, 5]

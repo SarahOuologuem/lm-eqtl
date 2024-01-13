@@ -115,12 +115,14 @@ def train(cfg: DictConfig) -> None:
         )
         val_dataloader = DataLoader(dataset = val_dataset, batch_size = cfg.batch_size, num_workers = 0, collate_fn = collator, shuffle = False)
 
-        # save the dataloader
+        # save the dataloader        
+        run_path = os.path.join(cfg.output_dir, cfg.proj_name, cfg.run_name)
+        if not os.path.exists(run_path): 
+            os.makedirs(run_path, exist_ok=True)
+        
         with open(
             os.path.join(
-                cfg.output_dir, 
-                cfg.proj_name,
-                cfg.run_name, 
+                run_path, 
                 f"val_dataloader_fold_{cfg.fold}.pkl"
             ), "wb"
         ) as pkl: 
