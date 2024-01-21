@@ -3,18 +3,19 @@ from torch import nn
 
 from model.models.spec_dss import L1Block, DSS
 
+
 class DenseRegressionHead(nn.Module): 
 
     def __init__(self, input_size, hidden_size):
         super(DenseRegressionHead, self).__init__()
 
         self.model = nn.Sequential(
-            nn.Linear(256, 128), 
+            nn.Linear(input_size, 128), 
             nn.ELU(), 
             nn.Linear(128, 64), 
             nn.ELU(), 
             nn.Linear(64, 32), 
-            nn.ELU(), 
+            nn.ELU(),
             nn.Linear(32, 1)
         )
 
@@ -202,7 +203,7 @@ class DenseRegDSSResNet(nn.Module):
 
         self.regression_head = DenseRegressionHead(
             input_size=d_model, 
-            hidden_size=256
+            hidden_size=128
         )
 
         self.species_encoder = species_encoder
@@ -244,20 +245,15 @@ class DenseRegDSSResNet(nn.Module):
                 # Postnorm
                 x = norm(x.transpose(-1, -2)).transpose(-1, -2)
 
-                
+
         if not self.embed_before:
             x = self.species_encoder(x,xs)
 
         seq_embedding = x
 
-        print("EMB BEFORE AGG: ", seq_embedding.size())
-
         # sum the embeddings across the sequence length dimension
         aggregated_embs = seq_embedding.mean(dim=-1)
         reg_y = self.regression_head(aggregated_embs)
-
-        print("EMB AFTER AGG: ", seq_embedding.size())
-
         x = self.decoder(x)  # (B, d_model, L) -> (B, d_output, L)
 
         embeddings = {}

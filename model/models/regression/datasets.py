@@ -118,7 +118,8 @@ class ExpressionCollator(object):
     def collate_fn(self, data):
         """collate fn that adds expression values for each sequence.
         """ 
-        #masked sequence
+        #masked sequence 
+        # TODO FIX: haplotypes means: randomly choosing one haplotype, genotype is both haplotypes
         if self.haplotypes:
             masked_sequence = [x[0][0] for x in data]
             masked_sequence = [torch.stack(torch.split(d, 3)) for d in masked_sequence] 
@@ -188,6 +189,7 @@ class ExpressionDataset(Dataset):
         seq = seq[shift:shift+self.seq_len] #shift the sequence and limit its size
         seg_label = self.seq_df.iloc[idx].seg_label #label for segment-aware training
 
+        # TODO FIX: haplotypes means choosing randomly one haplotype, genotype means choosing both
         if self.use_haplotypes:
             
             seq1 = seq.replace('-','').replace('B','A').replace('F','A').replace('M','R') # father

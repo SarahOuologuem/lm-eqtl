@@ -1,10 +1,16 @@
-from helpers.metrics import MeanRecall, MaskedAccuracy, IQS
-from helpers.misc import EMA, print_class_recall
+
 from tqdm import tqdm
 import torch
 import torch.nn as nn
 import wandb
 import numpy as np
+import sys
+
+if ".." not in sys.path: 
+    sys.path.append("..")
+
+from helpers.metrics import MeanRecall, MaskedAccuracy, IQS
+from helpers.misc import EMA, print_class_recall
 
 
 
@@ -27,7 +33,7 @@ def train_reg_model(model, optimizer, dataloader, device, silent=False, log_wand
     masked_accuracy = MaskedAccuracy(smooth=True).to(device)
     masked_IQS = IQS().to(device)
 
-    reg_criterion = nn.MSELoss()
+    reg_criterion = nn.MSELoss(reduction="mean")
     
     model.train() #model to train mode
 
@@ -47,6 +53,9 @@ def train_reg_model(model, optimizer, dataloader, device, silent=False, log_wand
 
         logits, _, expr_pred = model(masked_sequence, species_label)
 
+
+
+
         masked_loss = criterion(logits, targets_masked)
         expr_loss = reg_criterion(expr_pred, expr)
 
@@ -61,10 +70,6 @@ def train_reg_model(model, optimizer, dataloader, device, silent=False, log_wand
 
         optimizer.step()
 
-        if log_wandb:
-            if itr_idx % 10 == 0:
-                wandb.log({"expr_loss": expr_loss, "masked_loss": masked_loss, "total_loss": loss,
-                        "masked_acc": masked_accuracy.compute(), "masked_recall": masked_recall.compute(), "masked_IQS": masked_IQS.compute()})
 
         smoothed_loss = loss_EMA.update(loss.item())
 
@@ -74,6 +79,21 @@ def train_reg_model(model, optimizer, dataloader, device, silent=False, log_wand
         masked_recall.update(preds, targets_masked)
         masked_accuracy.update(preds, targets_masked)
         masked_IQS.update(preds, targets_masked)
+
+        if log_wandb:
+
+            expr_pred = expr_pred.detach().cpu().numpy().flatten()
+            expr_truth = expr.detach().cpu().numpy().flatten()
+            table = wandb.Table(data=np.stack((expr_truth, expr_pred), axis=1), columns=["expr_truth", "expr_pred"])
+            wandb.log({'my_histogram': wandb.plot.histogram(table, "scores",
+                title="Prediction Score Distribution")})
+
+
+            if itr_idx % 10 == 0:
+                wandb.log({"expr_loss": expr_loss, "masked_loss": masked_loss, "total_loss": loss,
+                        "masked_acc": masked_accuracy.compute(), "masked_recall": masked_recall.compute(), "masked_IQS": masked_IQS.compute(), 
+                        "batch_expr_pred": wandb.plot.histogram(table, "expr_pred", title="Expr Prediction Distribution"), 
+                        "batch_expr_truth": wandb.plot.histogram(table, "expr_truth", title="Expr Truth Distribution")})
         
         if not silent:
             pbar.update(1)

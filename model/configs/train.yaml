@@ -24,7 +24,7 @@ fold: 0 # DONT CHANGE
 Nfolds: 5 # DONT CHANGE
 tot_epochs: 5
 batch_size: 16
-learning_rate: 1e-4
+learning_rate: 1e-2
 dropout: 0
 weight_decay: 0
 save_at: [1, 2, 3, 4, 5]
@@ -35,5 +35,18 @@ device: cpu
 log_wandb: False
 proj_name: "lm_eqtl"
 run_name: ""
+
+# Layers NOT to freeze:
+freeze_layers_prefix:
+  - "regression"
+  - "s4_layers.0"
+  - "s4_layers.6"
+  - "s4_layers.10"
+  - "s4_layers.15"
+
+differential_lr: 
+  regression: 1e-1
+  s4_layers: 1e-3
+
 
 

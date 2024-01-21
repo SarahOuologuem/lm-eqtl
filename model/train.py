@@ -33,7 +33,6 @@ def train(cfg: DictConfig) -> None:
     print("training...")
 
     print("CURRENT WORKING DIRECTORY: ", os.getcwd())
-
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # LOAD DATA
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -84,6 +83,7 @@ def train(cfg: DictConfig) -> None:
     print("CUDA IS AVAILABLE: ", torch.cuda.is_available())
     print("cfg.DEVICE: ", cfg.device)
     if torch.cuda.is_available() and cfg.device=='cuda':
+        print("GPU MODEL: ", torch.cuda.get_device_name(torch.cuda.current_device()))
         device = torch.device('cuda')
         print('\nCUDA device: GPU\n')
     else:
@@ -142,7 +142,7 @@ def train(cfg: DictConfig) -> None:
         train_df, 
         transform = seq_transform
     )
-    train_dataloader = DataLoader(dataset = train_dataset, batch_size = cfg.batch_size, num_workers = 2, collate_fn = collator, shuffle = False)
+    train_dataloader = DataLoader(dataset = train_dataset, batch_size = cfg.batch_size, num_workers = 2, collate_fn = collator, shuffle = True)
 
     check_batch = next(iter(train_dataloader))
     seqs = check_batch[-1]
@@ -160,33 +160,57 @@ def train(cfg: DictConfig) -> None:
         species_encoder = seg_encoder
     )
 
-    with open(os.path.join(cfg.output_dir, cfg.proj_name, cfg.run_name, "model.pkl"), "wb") as f:
-        pickle.dump(model, f)
     model = model.to(device)
 
+    with open(os.path.join(cfg.output_dir, cfg.proj_name, cfg.run_name, "model.pkl"), "wb") as f:
+        pickle.dump(model, f)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Freeze layers
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    print("\n Freezing layers... \n")
-    for param_name, param in model.named_parameters(): 
-        if not param_name.startswith("regression"):
-            param.requires_grad = False
 
-    model_params = [p for p in model.parameters() if p.requires_grad]
+    training_params = []
+    if cfg.freeze_layers_prefix:
+        print("\n Freezing all layers except those with prefix: ", cfg.freeze_layers_prefix)
+        for param_name, param in model.named_parameters(): 
 
-    print(f"TOTAL PARAMS: {len(list(model.parameters()))}")
-    print(f"TRAINING {len(model_params)} PARAMS")
+            # freeze this layer
+            if not param_name.startswith(tuple(cfg.freeze_layers_prefix)):
+                param.requires_grad = False
 
-    optimizer = torch.optim.Adam(model_params, lr = cfg.learning_rate, weight_decay = cfg.weight_decay)
+            # train this layer
+            else: 
+                # assign different learning rates to layers
+                if cfg.differential_lr: 
 
-    weights_dir = os.path.join(cfg.output_dir, cfg.proj_name, 'weights') #dir to save model weights at save_at epochs
+                    # a specific learning rate is defined for this layer in the config
+                    if param_name.startswith(tuple(cfg.differential_lr.keys())):
+                        
+                        # find the longest matching prefix
+                        match = sorted([name for name in cfg.differential_lr.keys() if param_name.startswith(name)], key=len)[-1]
+                        training_params.append({"params": param, "lr": cfg.differential_lr[match]})
+                        print("Specific learning rate for layer: ", param_name, " lr: ", cfg.differential_lr[match])
+
+                    # no specific learning rate is defined for this layer, using global learning rate
+                    else: 
+                        training_params.append({"params": param, "lr": cfg.learning_rate})
+                        print("Using global learning rate for layer: ", param_name, " lr: ", cfg.learning_rate)
+                else: 
+                    training_params.append(param)
+
+    print(f"TOTAL NUMBER OF LAYERS: {len(list(model.parameters()))}")
+    print(f"TRAINING {len(training_params)} LAYERS")
+
+
+
+    optimizer = torch.optim.Adam(training_params, lr = cfg.learning_rate, weight_decay = cfg.weight_decay)
+
+    weights_dir = os.path.join(cfg.output_dir, cfg.proj_name, cfg.run_name, 'weights') #dir to save model weights at save_at epochs
 
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # LOAD MODEL WEIGHTS
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
     print("\n Loading model weights... \n")
     if cfg.model_weights:
         if torch.cuda.is_available():
@@ -230,7 +254,9 @@ def train(cfg: DictConfig) -> None:
         # print(f'epoch {epoch} - train, {metrics_to_str(train_metrics)}')
 
         if epoch in cfg.save_at: #save model weights
+            print("\nSaving model weights at epoch: ", epoch)
             misc.save_model_weights(model, optimizer, weights_dir, epoch)
+
     print("Training complete.")
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
