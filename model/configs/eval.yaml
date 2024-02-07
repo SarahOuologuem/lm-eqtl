@@ -1,0 +1,38 @@
+
+defaults:
+  - _self_
+  - model: DenseRegDSSResNet
+  - dataset: ExpressionDataset # must have a variable "haplotype: bool"
+
+split_mask: True # DONT CHANGE
+mask_rate: 0.2 # DONT CHANGE
+masking: null # DONT CHANGE
+validate_every: 1
+
+test: False
+
+dataset_path: "extdata/datasets/phase3_top10/dataset.parquet"
+expression_data: "extdata/GD660.GeneQuantRPKM.txt.gz"
+split_df: "extdata/5_fold_cv_split.tsv"
+
+eval_fold: null
+weights_path: null
+
+output_dir: results
+
+agnostic: False # DONT CHANGE
+device: cpu
+proj_name: null
+run_name: null
+weights_epoch: null
+batch_size: 64
+eval_train_set: True
+get_embeddings: False
+
+eval_until_batch: null
+
+
+
+
+
+

@@ -46,8 +46,18 @@ class SpecAdd(nn.Module):
             # concatenating
             spec_labels = self.species_embedder(spec_labels)[:,:, None] # ()
             torch.cat((x,spec_labels), dim = -1)
-
             return x
+        
+
+class GeneAdd(nn.Module): 
+    def __init__(self, d_model, Nsegments=10) -> None: 
+        self.gene_embedder = nn.Embedding(Nsegments, d_model)
+
+    def forward(self, x, spec_labels): 
+        spec_labels = self.gene_embedder(spec_labels)
+        x = (x.transpose(0, -1) + spec_labels.transpose(0, 1)).transpose(0, -1)
+        return x
+
 
 class DSSResNet(nn.Module):
     def __init__(

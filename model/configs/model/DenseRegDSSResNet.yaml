@@ -10,3 +10,15 @@ dropout: 0
 prenorm: False
 species_encoder: null
 embed_before: True
+
+aggregate_haplotypes: True
+emb_aggregation: "mean"
+
+# regression_head: 
+#   _target_: model.models.regression.models.LinearRegressionHead
+#   input_size: 256
+
+regression_head: 
+  _target_: model.models.regression.models.DenseRegressionHead
+  input_size: 256
+  hidden_size: 128

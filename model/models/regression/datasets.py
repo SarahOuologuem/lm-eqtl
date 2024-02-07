@@ -120,7 +120,9 @@ class ExpressionCollator(object):
         """ 
         #masked sequence 
         # TODO FIX: haplotypes means: randomly choosing one haplotype, genotype is both haplotypes
-        if self.haplotypes:
+        
+        # use genotypes -> haplotypes are concatenated
+        if not self.haplotypes:
             masked_sequence = [x[0][0] for x in data]
             masked_sequence = [torch.stack(torch.split(d, 3)) for d in masked_sequence] 
             masked_sequence = torch.concat(masked_sequence)
@@ -142,6 +144,8 @@ class ExpressionCollator(object):
             seg_expr = torch.Tensor(seg_expr).repeat_interleave(2)
 
             return (masked_sequence, seg_labels, seg_expr),target_labels_masked, target_labels, seqs
+       
+        # use use haplotypes -> parent is randomly selected
         else: 
             masked_sequence = [x[0][0] for x in data]
             masked_sequence = [torch.stack(torch.split(d, 3)) for d in masked_sequence] 
@@ -189,8 +193,9 @@ class ExpressionDataset(Dataset):
         seq = seq[shift:shift+self.seq_len] #shift the sequence and limit its size
         seg_label = self.seq_df.iloc[idx].seg_label #label for segment-aware training
 
-        # TODO FIX: haplotypes means choosing randomly one haplotype, genotype means choosing both
-        if self.use_haplotypes:
+        
+        # use genotypes -> concatenate both haplotypes
+        if not self.use_haplotypes:
             
             seq1 = seq.replace('-','').replace('B','A').replace('F','A').replace('M','R') # father
             seq2 = seq.replace('-','').replace('B','A').replace('M','A').replace('F','R') # mother 
@@ -209,9 +214,8 @@ class ExpressionDataset(Dataset):
             seq_expr = self.seq_df.iloc[idx].expr.astype(np.float32)
             return masked_sequence, target_labels_masked, target_labels, seq, seq_expr
 
-        
+        # use use haplotypes -> randomly select one haplotype
         else: 
-        
             #for given genotype, randomly choose a haplotype for training/testing
             if np.random.rand()>0.5:
                 seq = seq.replace('-','').replace('B','A').replace('F','A').replace('M','R')

@@ -14,6 +14,8 @@ test: False
 dataset_path: "extdata/datasets/phase3_top10/dataset.parquet"
 model_weights: "extdata/checkpoints/phase3_top10/aware_large_splitmsk/weights/epoch_100_weights_model.pt"
 expression_data: "extdata/GD660.GeneQuantRPKM.txt.gz"
+split_df: "extdata/5_fold_cv_split.tsv"
+# split_df: null
 output_dir: results
 
 get_embeddings: False # DONT CHANGE
@@ -23,11 +25,11 @@ train_splits: 1
 fold: 0 # DONT CHANGE
 Nfolds: 5 # DONT CHANGE
 tot_epochs: 5
-batch_size: 16
-learning_rate: 1e-2
+batch_size: 64
+learning_rate: 1e-3
 dropout: 0
 weight_decay: 0
-save_at: [1, 2, 3, 4, 5]
+save_at: [1, 2, 3, 4, 5, 8, 10]
 
 optimizer_weight: null
 
@@ -39,14 +41,28 @@ run_name: ""
 # Layers NOT to freeze:
 freeze_layers_prefix:
   - "regression"
-  - "s4_layers.0"
-  - "s4_layers.6"
-  - "s4_layers.10"
+  # - "s4_layers.9"
+  # - "s4_layers.10"
+  - "s4_layers.11"
+  - "s4_layers.12"
+  - "s4_layers.13"
+  - "s4_layers.14"
   - "s4_layers.15"
+  # - "norms.9"
+  # - "norms.10"
+  - "norms.11"
+  - "norms.12"
+  - "norms.13"
+  - "norms.14"
+  - "norms.15"
 
 differential_lr: 
-  regression: 1e-1
+  norms: 1e-3
+  regression: 1e-3
   s4_layers: 1e-3
+
+# convert expr to log-scale -> predict log expression
+log_transform: False
 
 
 
